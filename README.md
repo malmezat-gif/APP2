@@ -8,6 +8,10 @@ Le principe du jeu est simple : chaque joueur propose un prix entier superieur o
 
 Plus le prix est bas, plus la mise coute cher. Cela evite que tout le monde joue 0.
 
+## Presentation rapide
+
+Dans ce projet, on a realise un programme Python sur le principe des encheres inverses. Le but etait de creer une application capable de charger des mises, de les organiser dans un ABR, de trouver automatiquement le gagnant et d'analyser les resultats. On a aussi ajoute une simulation sur plusieurs manches et un mode humain contre IA pour mieux comprendre les strategies possibles.
+
 ## Ce que fait le programme
 
 - charger un fichier CSV de mises
