@@ -1,115 +1,218 @@
-# ============================================================
-# encheres.py - Moteur d'enchère LowBid "Qui perd gagne !"
-# Gère une manche complète : chargement, calcul des coûts,
-# recherche du gagnant et recette du vendeur.
-# ============================================================
-
-from abr import ABR           # Notre structure Arbre Binaire de Recherche
-from outils import cout_mise  # Fonction de calcul du coût d'une mise
+from abr import ABR
+from outils import cout_mise
 
 
 class Enchere:
     """
-    Représente une manche d'enchère LowBid.
-    Utilise un ABR pour stocker et analyser les mises efficacement.
+    Une enchere correspond a une seule manche.
+
+    On garde :
+    - un ABR pour les recherches sur les prix
+    - une liste simple des mises pour les calculs de cout
     """
 
-    def __init__(self, cout_base=1, alpha=10):
-        """
-        Initialise une manche vide avec les paramètres de coût.
-        cout_base : coût fixe appliqué à chaque mise (en euros)
-        alpha     : paramètre d'intensité de la prime de risque
-        """
-        self.abr       = ABR()       # L'arbre binaire de recherche qui stocke toutes les mises
-        self.cout_base = cout_base   # Coût fixe de participation
-        self.alpha     = alpha       # Prime de risque
-        self.mises     = []          # Liste brute des mises : [(joueur, prix), ...]
+    def __init__(self, cout_base=1.0, alpha=10.0):
+        self.abr = ABR()
+        self.cout_base = cout_base
+        self.alpha = alpha
+        self.mises = []
 
     def ajouter_mise(self, joueur, prix):
         """
-        Enregistre la mise d'un joueur.
-        Insère dans l'ABR ET conserve une copie dans la liste brute.
-        Un prix négatif est refusé (règle du jeu).
+        Ajoute une mise.
+
+        On verifie le prix puis on l'enregistre
+        dans la liste et dans l'ABR.
         """
         if prix < 0:
-            print(f"[Erreur] Prix invalide ({prix}) - doit être >= 0.")
+            raise ValueError("Le prix doit etre superieur ou egal a 0.")
+
+        if (joueur, prix) in self.mises:
             return
-        self.mises.append((joueur, prix))  # Sauvegarde dans la liste brute
-        self.abr.inserer(prix, joueur)     # Insertion dans l'ABR
+
+        self.mises.append((joueur, prix))
+        self.abr.inserer(prix, joueur)
+
+    def supprimer_mise(self, joueur, prix):
+        """
+        Supprime une mise precise.
+
+        La suppression est faite :
+        - dans la liste des mises
+        - puis dans l'ABR
+        """
+        for index, (nom_joueur, prix_joue) in enumerate(self.mises):
+            if nom_joueur == joueur and prix_joue == prix:
+                del self.mises[index]
+                return self.abr.supprimer_joueur(prix, joueur)
+        return False
 
     def charger_depuis_liste(self, liste_mises):
         """
-        Charge des mises depuis une liste de tuples.
-        Format accepté : (joueur, prix) ou (manche, joueur, prix).
+        Charge une liste de tuples.
+
+        On accepte :
+        - (joueur, prix)
+        - (manche, joueur, prix)
         """
         for mise in liste_mises:
             if len(mise) == 2:
-                joueur, prix = mise          # Format simple
-                self.ajouter_mise(joueur, prix)
+                joueur, prix = mise
             elif len(mise) == 3:
-                _, joueur, prix = mise       # On ignore le numéro de manche
-                self.ajouter_mise(joueur, prix)
+                _, joueur, prix = mise
+            else:
+                raise ValueError("Format de mise non reconnu.")
+
+            self.ajouter_mise(joueur, int(prix))
 
     def trouver_gagnant(self):
         """
-        Détermine le gagnant : joueur avec le PLUS BAS PRIX UNIQUE.
-        Retourne (prix, joueur) ou None si aucun gagnant.
+        Retourne le plus bas prix unique.
+
+        Le resultat est :
+        - None si personne ne gagne
+        - (prix, joueur) sinon
         """
-        noeud_gagnant = self.abr.trouver_plus_bas_unique()  # Recherche dans l'ABR
-        if noeud_gagnant is None:
-            return None  # Aucun prix unique : manche annulée
-        return (noeud_gagnant.prix, noeud_gagnant.joueurs[0])  # (prix gagnant, joueur gagnant)
+        noeud = self.abr.trouver_plus_bas_unique()
+
+        if noeud is None:
+            return None
+
+        return noeud.prix, noeud.joueurs[0]
 
     def calculer_cout_joueur(self, joueur):
         """
-        Calcule le coût total payé par un joueur dans cette manche.
-        Somme de cout_mise(prix) pour chaque mise du joueur.
+        Additionne le cout de toutes les mises d'un joueur.
         """
-        cout_total = 0.0
-        for (j, prix) in self.mises:
-            if j == joueur:
-                cout_total += cout_mise(prix, self.cout_base, self.alpha)  # Coût de cette mise
-        return round(cout_total, 2)
+        total = 0.0
+
+        for nom_joueur, prix in self.mises:
+            if nom_joueur == joueur:
+                total += cout_mise(prix, self.cout_base, self.alpha)
+
+        return round(total, 2)
 
     def calculer_recette_vendeur(self):
         """
-        Calcule la recette totale du vendeur (somme des coûts de toutes les mises).
-        Le vendeur encaisse même si la manche est annulée.
+        Additionne le cout de toutes les mises de la manche.
         """
-        recette = 0.0
-        for (joueur, prix) in self.mises:
-            recette += cout_mise(prix, self.cout_base, self.alpha)  # Coût de chaque mise
-        return round(recette, 2)
+        total = 0.0
+
+        for _, prix in self.mises:
+            total += cout_mise(prix, self.cout_base, self.alpha)
+
+        return round(total, 2)
 
     def calculer_cout_moyen_par_joueur(self):
         """
-        Calcule le coût moyen par joueur : recette totale / nb joueurs distincts.
+        Fait la moyenne des couts par joueur.
         """
         if not self.mises:
             return 0.0
-        joueurs_uniques = set(j for (j, _) in self.mises)  # Joueurs sans doublons
-        cout_total = self.calculer_recette_vendeur()
-        return round(cout_total / len(joueurs_uniques), 2)
 
-    def afficher_resultats(self):
-        """Affiche un résumé complet de la manche dans la console."""
-        print("\n" + "=" * 55)
-        print("  RESULTATS DE LA MANCHE LOWBID")
-        print("=" * 55)
-        self.abr.afficher_etat()  # Affichage de l'ABR (parcours infixe)
-        print(f"  Mises totales : {self.abr.nb_total_mises()}")
-        print(f"  Recette vendeur : {self.calculer_recette_vendeur():.2f} euros")
-        print(f"  Cout moyen / joueur : {self.calculer_cout_moyen_par_joueur():.2f} euros")
-        print(f"  Hauteur ABR : {self.abr.hauteur()}")
+        joueurs = {joueur for joueur, _ in self.mises}
+        recette = self.calculer_recette_vendeur()
+        return round(recette / len(joueurs), 2)
+
+    def distribution_des_prix(self):
+        """Renvoie la repartition des prix dans l'ordre croissant."""
+        return self.abr.distribution_prix()
+
+    def resume_enchere(self):
+        """
+        Construit un texte simple pour afficher l'etat de la manche.
+        """
+        if self.abr.est_vide():
+            return "Aucune mise enregistree.\n"
+
+        lignes = []
+        lignes.append("Etat de l'enchere")
+        lignes.append("----------------")
+
+        for noeud in self.abr.parcours_infixe():
+            joueurs = ", ".join(noeud.joueurs)
+            texte = f"Prix {noeud.prix} : {joueurs}"
+            if len(noeud.joueurs) == 1:
+                texte += " (unique)"
+            lignes.append(texte)
+
+        lignes.append("")
+        lignes.append(f"Nombre total de mises : {self.abr.nb_total_mises()}")
+        lignes.append(f"Recette du vendeur : {self.calculer_recette_vendeur():.2f} euros")
+        lignes.append(
+            f"Cout moyen par joueur : {self.calculer_cout_moyen_par_joueur():.2f} euros"
+        )
+        lignes.append(f"Hauteur de l'ABR : {self.abr.hauteur()}")
+
         gagnant = self.trouver_gagnant()
-        print("-" * 55)
-        if gagnant:
-            print(f"  GAGNANT : {gagnant[1]} avec le prix {gagnant[0]}")
+        if gagnant is None:
+            lignes.append("Gagnant : aucun, car il n'y a pas de prix unique.")
         else:
-            print("  Aucun gagnant - Manche annulee")
-        print("=" * 55 + "\n")
+            prix, joueur = gagnant
+            lignes.append(f"Gagnant : {joueur} avec le prix {prix}.")
+
+        return "\n".join(lignes) + "\n"
+
+    def resume_distribution(self):
+        """
+        Construit un texte qui montre combien de joueurs ont choisi chaque prix.
+        """
+        if self.abr.est_vide():
+            return "Aucune donnee chargee.\n"
+
+        lignes = []
+        lignes.append("Distribution des prix")
+        lignes.append("---------------------")
+
+        for prix, nombre in self.distribution_des_prix().items():
+            barre = "#" * nombre
+            lignes.append(f"{prix:>3} : {nombre} joueur(s) {barre}")
+
+        return "\n".join(lignes) + "\n"
+
+    def resume_couts(self):
+        """
+        Construit un texte avec le cout paye par chaque joueur.
+        """
+        if not self.mises:
+            return "Aucune donnee chargee.\n"
+
+        lignes = []
+        lignes.append("Couts par joueur")
+        lignes.append("----------------")
+
+        joueurs = sorted({joueur for joueur, _ in self.mises})
+        for joueur in joueurs:
+            cout = self.calculer_cout_joueur(joueur)
+            lignes.append(f"{joueur} : {cout:.2f} euros")
+
+        lignes.append(f"Total vendeur : {self.calculer_recette_vendeur():.2f} euros")
+        return "\n".join(lignes) + "\n"
+
+    def resume_succ_pred(self):
+        """
+        Construit un texte avec le predecesseur et le successeur de chaque prix.
+        """
+        if self.abr.est_vide():
+            return "Aucune donnee chargee.\n"
+
+        lignes = []
+        lignes.append("Predecesseur et successeur")
+        lignes.append("--------------------------")
+
+        for noeud in self.abr.parcours_infixe():
+            pred = self.abr.predecesseur(noeud.prix)
+            succ = self.abr.successeur(noeud.prix)
+
+            prix_pred = pred.prix if pred else "-"
+            prix_succ = succ.prix if succ else "-"
+            lignes.append(
+                f"Prix {noeud.prix} -> predecesseur : {prix_pred} | successeur : {prix_succ}"
+            )
+
+        return "\n".join(lignes) + "\n"
 
     def reinitialiser(self):
-        """Remet la manche à zero : ABR vide + liste des mises vide."""
-        self.abr   = ABR()  # Nouvel ABR vide
-        self.mises = []     # Liste des mises réinitialisée
+        """Vide completement la manche en cours."""
+        self.abr = ABR()
+        self.mises = []

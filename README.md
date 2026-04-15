@@ -1,105 +1,67 @@
-# APP2 — LowBid : Qui perd gagne !
+# APP2 - LowBid
 
-> Plateforme d'enchères inversées : le prix le plus bas **unique** remporte la mise.
+Projet realise en groupe par Titouan, Illyas, Maxime et Thibault.
 
-## Équipe
-- malmezat-gif
-- tmalmeu
+Le principe du jeu est simple : chaque joueur propose un prix entier superieur ou egal a 0. Le gagnant est celui qui a propose le plus petit prix unique. Une mise n'est pas gratuite. Son cout est calcule avec la formule :
 
----
+`cout_mise(prix) = cout_base + alpha / (prix + 1)`
 
-## Contexte
+Plus le prix est bas, plus la mise coute cher. Cela evite que tout le monde joue 0.
 
-Dans une enchère inversée LowBid, chaque joueur propose un prix. Le gagnant est celui qui soumet le prix le plus bas **et** qui est le seul à l'avoir proposé. Chaque mise a un coût calculé selon la formule :
+## Ce que fait le programme
 
+- charger un fichier CSV de mises
+- generer un jeu de donnees de demonstration
+- stocker les prix dans un ABR
+- afficher l'etat de l'enchere en ordre croissant
+- trouver le plus bas prix unique
+- calculer les couts des joueurs et la recette du vendeur
+- afficher la distribution des prix
+- donner le successeur et le predecesseur d'un prix
+- simuler au moins 500 manches avec plusieurs strategies
+- faire jouer un humain contre des IA
 
+## Fichiers principaux
 
-avec  et .
+- `abr.py` : l'arbre binaire de recherche
+- `encheres.py` : une manche complete
+- `outils.py` : formule de cout, CSV et generation de donnees
+- `strategies.py` : les strategies de joueurs
+- `simulation.py` : la simulation de plusieurs manches
+- `interface.py` : l'interface graphique en `tkinter`
+- `test_lowbid.py` : quelques verifications automatiques
 
----
+## Lancer le projet
 
-## Fonctionnalités
+Pour ouvrir l'interface :
 
-- **Structure ABR** : insertion et recherche en O(log n) en moyenne
-- **4 stratégies de jeu** : aléatoire, conservative, agressive, adaptative
-- **Simulation multi-manches** : jusqu'à 500 manches avec statistiques par stratégie
-- **Interface graphique** : 4 onglets (Enchère, Simulation, Analyse, Humain vs IA)
-- **Chargement CSV** : support de 2 formats de fichiers de données
-- **Détection de dégénérescence** : alerte si l'ABR devient déséquilibré
+```bash
+python3 interface.py
+```
 
----
+Pour lancer la verification automatique :
 
-## Structure du projet
+```bash
+python3 -m unittest test_lowbid.py
+```
 
+## Choix qu'on a gardes
 
+On a volontairement garde un code simple. L'objectif etait d'avoir quelque chose qu'on peut expliquer facilement a l'oral sans donner l'impression d'un projet trop complique.
 
----
+- On utilise un ABR parce qu'il garde les prix ordonnes pendant les insertions.
+- Quand plusieurs joueurs ont le meme prix, on les garde dans la meme liste dans le noeud.
+- On ne fait pas de tri Python pour trouver le gagnant principal. On passe par le parcours infixe de l'ABR.
+- L'interface est faite avec `tkinter` standard pour rester legere et facile a lancer.
 
-## Installation
+## Reponses courtes au sujet
 
-Defaulting to user installation because normal site-packages is not writeable
-Collecting customtkinter
-  Downloading customtkinter-5.2.2-py3-none-any.whl.metadata (677 bytes)
-Collecting darkdetect (from customtkinter)
-  Downloading darkdetect-0.8.0-py3-none-any.whl.metadata (3.6 kB)
-Requirement already satisfied: packaging in /usr/local/lib/python3.10/dist-packages (from customtkinter) (26.0)
-Downloading customtkinter-5.2.2-py3-none-any.whl (296 kB)
-Downloading darkdetect-0.8.0-py3-none-any.whl (9.0 kB)
-Installing collected packages: darkdetect, customtkinter
+- Le prix 0 n'est pas une strategie dominante parce qu'il coute tres cher et il risque d'etre choisi par plusieurs joueurs.
+- Le systeme n'est pas a somme nulle : le vendeur gagne de l'argent meme si personne ne gagne l'objet.
+- Pour trouver le gagnant, il faut connaitre les prix joues et savoir combien de joueurs ont choisi chaque prix.
+- Un ABR simple peut se degenerer si les insertions arrivent deja presque triees.
+- Pour eviter cela, on pourrait utiliser un AVL ou une autre structure equilibree.
 
-Successfully installed customtkinter-5.2.2 darkdetect-0.8.0
+## Remarque
 
-Python 3.8+ requis. Aucune autre dépendance externe.
-
----
-
-## Lancement
-
-
-
----
-
-## Choix techniques
-
-| Décision | Justification |
-|---|---|
-| ABR plutôt que liste triée | Insertion O(log n) en moyenne vs O(n) |
-| Parcours infixe pour le gagnant | Nœuds triés par prix en O(n) |
-| Successeur/Prédécesseur itératif | O(h) sans récursion, plus lisible |
-| Threading pour la simulation | Évite de geler l'interface Tkinter |
-| Base64 + TextDecoder | Injection UTF-8 fiable dans CodeMirror |
-
----
-
-## Réponses aux questions du cahier des charges
-
-**Q1 — Complexité de l'insertion dans l'ABR**
-- Moyenne : O(log n) si l'arbre est équilibré (mises aléatoires)
-- Pire cas : O(n) si les prix sont insérés en ordre croissant (arbre dégénéré)
-
-**Q2 — Trouver le plus bas prix unique**
-- Parcours infixe → nœuds en ordre croissant
-- On retourne le premier nœud avec exactement 1 joueur
-- Complexité : O(n) dans tous les cas
-
-**Q3 — Successeur et prédécesseur**
--  : minimum du sous-arbre droit, ou premier ancêtre « à gauche »
--  : symétrique
-- Complexité : O(h) où h = hauteur de l'arbre
-
-**Q4 — Dégénérescence de l'ABR**
-- Si les prix sont insérés en ordre croissant (stratégie conservative), l'ABR devient une liste chaînée → hauteur = n
-- Détection : comparer h à log₂(n+1)
-- Solution recommandée : AVL ou dictionnaire + tri
-
-**Q5 — Comparaison des stratégies (simulation 500 manches)**
-- **Agressive** : fort taux de victoire car les prix bas sont plus souvent uniques
-- **Conservative** : recette vendeur maximale (prix élevés = coûts élevés)
-- **Adaptative** : performance variable selon l'historique disponible
-- **Aléatoire** : référence neutre, taux de victoire ≈ 1/nb_joueurs
-
----
-
-## Licence
-
-Projet académique — APP2, Polytechnique Montréal.
+Le code a ete simplifie volontairement pour privilegier la lisibilite. Les docstrings expliquent surtout l'ordre des etapes, afin qu'un debutant puisse suivre plus facilement.

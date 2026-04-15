@@ -1,195 +1,243 @@
-# ============================================================
-# abr.py - Arbre Binaire de Recherche (ABR) pour LowBid
-# Structure centrale du projet : chaque nœud = un prix
-# avec la liste des joueurs ayant proposé ce prix
-# ============================================================
-
-
 class Noeud:
     """
-    Représente un nœud de l'Arbre Binaire de Recherche.
-    Clé du nœud : le prix proposé (entier >= 0).
-    Valeur associée : liste des joueurs ayant proposé ce prix.
+    Un noeud represente un prix dans l'arbre.
+
+    On stocke :
+    - le prix
+    - la liste des joueurs qui ont choisi ce prix
+    - le fils gauche
+    - le fils droit
     """
 
     def __init__(self, prix, joueur):
-        """
-        Crée un nouveau nœud avec un prix et son premier joueur.
-        prix   : entier >= 0, la clé du nœud
-        joueur : identifiant du joueur (ex : "J01")
-        """
-        self.prix    = prix         # La clé du nœud (entier représentant le prix)
-        self.joueurs = [joueur]     # Liste des joueurs ayant misé ce prix (au moins 1 au départ)
-        self.gauche  = None         # Référence vers le fils gauche (prix inférieurs)
-        self.droite  = None         # Référence vers le fils droit (prix supérieurs)
+        self.prix = prix
+        self.joueurs = [joueur]
+        self.gauche = None
+        self.droite = None
 
 
 class ABR:
     """
-    Arbre Binaire de Recherche pour gérer les mises d'une enchère LowBid.
-    Propriété ABR : pour tout nœud N, tous les prix du sous-arbre gauche < N.prix,
-    et tous les prix du sous-arbre droit > N.prix.
-    Plusieurs joueurs peuvent avoir le même prix : ils sont stockés dans une liste.
+    ABR simple pour garder les prix dans l'ordre.
+
+    Regle :
+    - a gauche il y a les prix plus petits
+    - a droite il y a les prix plus grands
     """
 
     def __init__(self):
-        """
-        Initialise un ABR vide.
-        """
-        self.racine = None  # La racine est None tant qu'aucune mise n'a été insérée
+        self.racine = None
+
+    def est_vide(self):
+        """Retourne True si aucune mise n'a encore ete inseree."""
+        return self.racine is None
 
     def inserer(self, prix, joueur):
         """
-        Insère une mise (prix d'un joueur) dans l'ABR.
-        Si le prix existe déjà dans l'arbre, le joueur est ajouté à la liste du nœud.
-        Sinon, un nouveau nœud est créé.
-        Complexité moyenne : O(log n) | pire cas : O(n) si l'arbre est dégénéré
+        Ajoute une mise dans l'arbre.
+
+        Dans l'ordre :
+        - si l'arbre est vide, on cree la racine
+        - sinon on descend a gauche ou a droite
+        - si le prix existe deja, on ajoute le joueur dans la liste
         """
         if self.racine is None:
             self.racine = Noeud(prix, joueur)
-        else:
-            self._inserer_rec(self.racine, prix, joueur)
+            return
 
-    def _inserer_rec(self, noeud, prix, joueur):
+        self._inserer(self.racine, prix, joueur)
+
+    def _inserer(self, noeud, prix, joueur):
         if prix == noeud.prix:
             if joueur not in noeud.joueurs:
                 noeud.joueurs.append(joueur)
-        elif prix < noeud.prix:
+            return
+
+        if prix < noeud.prix:
             if noeud.gauche is None:
                 noeud.gauche = Noeud(prix, joueur)
             else:
-                self._inserer_rec(noeud.gauche, prix, joueur)
+                self._inserer(noeud.gauche, prix, joueur)
+            return
+
+        if noeud.droite is None:
+            noeud.droite = Noeud(prix, joueur)
         else:
-            if noeud.droite is None:
-                noeud.droite = Noeud(prix, joueur)
+            self._inserer(noeud.droite, prix, joueur)
+
+    def rechercher(self, prix):
+        """
+        Cherche un prix dans l'arbre.
+
+        On compare le prix cherche avec le noeud courant
+        jusqu'a le trouver ou jusqu'a tomber sur None.
+        """
+        noeud = self.racine
+
+        while noeud is not None:
+            if prix == noeud.prix:
+                return noeud
+            if prix < noeud.prix:
+                noeud = noeud.gauche
             else:
-                self._inserer_rec(noeud.droite, prix, joueur)
+                noeud = noeud.droite
+
+        return None
 
     def parcours_infixe(self):
         """
-        Retourne la liste de TOUS les nœuds dans l'ordre CROISSANT des prix.
-        Le parcours infixe d'un ABR donne toujours les clés dans l'ordre trié.
-        Complexité : O(n).
+        Retourne les noeuds dans l'ordre croissant des prix.
+
+        Le parcours infixe fait :
+        gauche -> noeud -> droite
         """
         resultat = []
-        self._infixe_rec(self.racine, resultat)
+        self._parcours_infixe(self.racine, resultat)
         return resultat
 
-    def _infixe_rec(self, noeud, resultat):
-        """Parcours infixe récursif : gauche -> noeud courant -> droite."""
+    def _parcours_infixe(self, noeud, resultat):
         if noeud is None:
             return
-        self._infixe_rec(noeud.gauche, resultat)   # 1) Visiter le sous-arbre GAUCHE
-        resultat.append(noeud)                     # 2) Ajouter le nœud COURANT
-        self._infixe_rec(noeud.droite, resultat)   # 3) Visiter le sous-arbre DROIT
+
+        self._parcours_infixe(noeud.gauche, resultat)
+        resultat.append(noeud)
+        self._parcours_infixe(noeud.droite, resultat)
 
     def trouver_plus_bas_unique(self):
         """
-        Trouve le plus petit prix proposé par exactement UN seul joueur.
-        C'est la clé du jeu LowBid : le gagnant est celui qui a le plus bas prix unique.
-        Retourne le nœud gagnant, ou None si aucun prix n'est unique.
-        Complexité : O(n) dans le pire cas.
+        Cherche le premier prix unique.
+
+        Comme le parcours infixe donne les prix tries,
+        le premier noeud avec un seul joueur est le gagnant.
         """
-        noeuds_tries = self.parcours_infixe()  # Tous les nœuds triés par prix croissant
-        for noeud in noeuds_tries:
+        for noeud in self.parcours_infixe():
             if len(noeud.joueurs) == 1:
-                return noeud  # Premier prix unique = gagnant
-        return None  # Aucun prix unique : manche annulée
-
-    def rechercher(self, prix):
-        """Recherche un nœud par son prix. Retourne le nœud ou None."""
-        return self._rechercher_rec(self.racine, prix)
-
-    def _rechercher_rec(self, noeud, prix):
-        """Recherche récursive dans l'ABR."""
-        if noeud is None:
-            return None  # Prix non trouvé
-        if prix == noeud.prix:
-            return noeud  # Trouvé !
-        elif prix < noeud.prix:
-            return self._rechercher_rec(noeud.gauche, prix)  # Chercher à gauche
-        else:
-            return self._rechercher_rec(noeud.droite, prix)  # Chercher à droite
+                return noeud
+        return None
 
     def successeur(self, prix):
         """
-        Retourne le nœud avec le plus petit prix STRICTEMENT supérieur à 'prix'.
-        Utile pour trouver le prochain candidat après un prix non unique.
-        Complexité : O(h) où h = hauteur de l'arbre.
+        Cherche le premier prix strictement plus grand.
+
+        On garde un candidat pendant qu'on descend dans l'arbre.
         """
-        successeur = None
+        candidat = None
         noeud = self.racine
+
         while noeud is not None:
             if noeud.prix > prix:
-                successeur = noeud       # Candidat valide
-                noeud = noeud.gauche     # Cherche un candidat encore plus petit
+                candidat = noeud
+                noeud = noeud.gauche
             else:
-                noeud = noeud.droite     # Prix trop petit : va à droite
-        return successeur
+                noeud = noeud.droite
+
+        return candidat
 
     def predecesseur(self, prix):
         """
-        Retourne le nœud avec le plus grand prix STRICTEMENT inférieur à 'prix'.
-        Utile pour naviguer dans l'ordre des prix.
-        Complexité : O(h) où h = hauteur de l'arbre.
+        Cherche le premier prix strictement plus petit.
+
+        Le principe est le meme que pour le successeur,
+        mais en sens inverse.
         """
-        predecesseur = None
+        candidat = None
         noeud = self.racine
+
         while noeud is not None:
             if noeud.prix < prix:
-                predecesseur = noeud     # Candidat valide
-                noeud = noeud.droite     # Cherche un candidat encore plus grand
+                candidat = noeud
+                noeud = noeud.droite
             else:
-                noeud = noeud.gauche     # Prix trop grand : va à gauche
-        return predecesseur
+                noeud = noeud.gauche
+
+        return candidat
 
     def nb_total_mises(self):
-        """Retourne le nombre total de mises (somme des joueurs dans chaque nœud)."""
+        """Compte toutes les mises, meme quand un prix est partage."""
         total = 0
         for noeud in self.parcours_infixe():
-            total += len(noeud.joueurs)  # On additionne le nb de joueurs par nœud
+            total += len(noeud.joueurs)
         return total
 
     def distribution_prix(self):
-        """Retourne {prix: nb_joueurs} dans l'ordre croissant des prix."""
+        """Retourne un dictionnaire {prix: nombre_de_joueurs}."""
         distribution = {}
         for noeud in self.parcours_infixe():
             distribution[noeud.prix] = len(noeud.joueurs)
         return distribution
 
-    def afficher_etat(self):
-        """Affiche l'état de l'enchère (parcours infixe = prix triés)."""
-        noeuds = self.parcours_infixe()
-        if not noeuds:
-            print("L'enchère est vide.")
-            return
-        print("=" * 55)
-        print("  ETAT DE L'ENCHERE (prix croissants)")
-        print("=" * 55)
-        for noeud in noeuds:
-            if len(noeud.joueurs) == 1:
-                indicateur = "UNIQUE"  # Ce prix n'appartient qu'à un joueur
-            else:
-                indicateur = f"({len(noeud.joueurs)} joueurs)"
-            print(f"  Prix {noeud.prix:4d}  ->  {noeud.joueurs}  {indicateur}")
-        print("=" * 55)
-
-    def est_vide(self):
-        """Retourne True si l'ABR est vide, False sinon."""
-        return self.racine is None  # Vide si et seulement si la racine est None
-
     def hauteur(self):
         """
-        Retourne la hauteur de l'ABR.
-        Un ABR équilibré a une hauteur ~log2(n).
-        Un ABR dégénéré (insertions triées) a une hauteur = n.
-        """
-        return self._hauteur_rec(self.racine)
+        Donne la hauteur de l'arbre.
 
-    def _hauteur_rec(self, noeud):
-        """Calcul récursif de la hauteur : 1 + max(gauche, droite)."""
+        Un arbre trop haut pour peu de noeuds peut etre degenerate.
+        """
+        return self._hauteur(self.racine)
+
+    def _hauteur(self, noeud):
         if noeud is None:
-            return 0  # Arbre vide = hauteur 0
-        hauteur_gauche = self._hauteur_rec(noeud.gauche)
-        hauteur_droite = self._hauteur_rec(noeud.droite)
-        return 1 + max(hauteur_gauche, hauteur_droite)  # Hauteur = 1 + max des deux sous-arbres
+            return 0
+
+        hauteur_gauche = self._hauteur(noeud.gauche)
+        hauteur_droite = self._hauteur(noeud.droite)
+        return 1 + max(hauteur_gauche, hauteur_droite)
+
+    def supprimer_joueur(self, prix, joueur):
+        """
+        Supprime une mise precise.
+
+        Etapes :
+        - on cherche le noeud du prix
+        - on retire le joueur de la liste
+        - si la liste devient vide, on retire le noeud de l'ABR
+        """
+        noeud = self.rechercher(prix)
+
+        if noeud is None or joueur not in noeud.joueurs:
+            return False
+
+        noeud.joueurs.remove(joueur)
+
+        if not noeud.joueurs:
+            self.racine = self._supprimer_noeud(self.racine, prix)
+
+        return True
+
+    def _supprimer_noeud(self, noeud, prix):
+        """
+        Supprime un noeud de l'ABR.
+
+        Cas geres :
+        - pas d'enfant
+        - un seul enfant
+        - deux enfants
+        """
+        if noeud is None:
+            return None
+
+        if prix < noeud.prix:
+            noeud.gauche = self._supprimer_noeud(noeud.gauche, prix)
+            return noeud
+
+        if prix > noeud.prix:
+            noeud.droite = self._supprimer_noeud(noeud.droite, prix)
+            return noeud
+
+        if noeud.gauche is None:
+            return noeud.droite
+
+        if noeud.droite is None:
+            return noeud.gauche
+
+        remplacant = self._minimum(noeud.droite)
+        noeud.prix = remplacant.prix
+        noeud.joueurs = remplacant.joueurs[:]
+        noeud.droite = self._supprimer_noeud(noeud.droite, remplacant.prix)
+        return noeud
+
+    def _minimum(self, noeud):
+        """Descend a gauche jusqu'au plus petit prix du sous-arbre."""
+        courant = noeud
+        while courant.gauche is not None:
+            courant = courant.gauche
+        return courant

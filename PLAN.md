@@ -1,76 +1,78 @@
-# PLAN.md — APP2 LowBid « Qui perd gagne ! »
+# PLAN.md
 
-## Contexte
-Plateforme d'enchères inversées : le plus bas prix **unique** remporte l'enchère.
-Chaque mise a un coût : `cout_mise(prix) = cout_base + alpha/(prix+1)`.
+## Groupe
 
----
+- Titouan
+- Illyas
+- Maxime
+- Thibault
 
-## Décomposition en modules
+## Idee generale
 
-| Fichier | Rôle |
-|---|---|
-| `outils.py` | Constantes, formule de coût, chargement CSV, génération aléatoire |
-| `abr.py` | Structure de données ABR (Arbre Binaire de Recherche) |
-| `encheres.py` | Moteur d'une manche (insertion, gagnant, recettes) |
-| `strategies.py` | 4 stratégies de jeu (aléatoire, conservative, agressive, adaptative) |
-| `simulation.py` | Simulation multi-manches, statistiques par stratégie |
-| `interface.py` | GUI CustomTkinter, 4 onglets, threading |
+On veut simuler une enchere "plus bas prix unique gagne".
 
----
+Pour chaque manche :
 
-## Choix techniques
+- les joueurs choisissent un prix entier
+- les prix sont ranges dans un ABR
+- on cherche le premier prix unique
+- on calcule ce que chaque joueur paie
+- on calcule la recette totale du vendeur
 
-| Décision | Justification |
-|---|---|
-| ABR plutôt que liste triée | Insertion O(log n) moyenne vs O(n) |
-| Parcours infixe pour le gagnant | Renvoie les nœuds triés par prix en O(n) |
-| Successeur/prédécesseur itératif | O(h) sans récursion, plus lisible |
-| Threading pour la simulation | Évite de geler l'interface Tkinter |
-| Base64 + TextDecoder pour GitHub | Injection UTF-8 fiable dans CodeMirror 6 |
+## Organisation des fichiers
 
----
+- `abr.py`
+  Le stockage des prix dans l'arbre.
+- `encheres.py`
+  Une manche complete avec les calculs.
+- `outils.py`
+  Les fonctions simples utiles partout.
+- `strategies.py`
+  Les choix possibles pour les joueurs.
+- `simulation.py`
+  Les comparaisons sur beaucoup de manches.
+- `interface.py`
+  L'affichage en `tkinter`.
 
-## Réponses aux questions du cahier des charges
+## Ce qu'il faut pouvoir montrer
 
-### Q1 — Complexité de l'insertion dans l'ABR
-- Moyenne : **O(log n)** si l'arbre est équilibré (mises aléatoires)
-- Pire cas : **O(n)** si les prix sont insérés en ordre croissant (arbre dégénéré)
+- insertion dans l'ABR
+- parcours infixe
+- recherche d'un prix
+- recherche du plus bas prix unique
+- successeur et predecesseur
+- suppression conditionnelle d'une mise
+- simulation de plusieurs manches
+- comparaison de plusieurs strategies
 
-### Q2 — Trouver le plus bas prix unique
-- Parcours **infixe** → nœuds en ordre croissant
-- On retourne le **premier nœud** avec 
-- Complexité : **O(n)** dans tous les cas
+## Reponses simples pour l'oral
 
-### Q3 — Successeur et prédécesseur
-- **Successeur(x)** : si x a un sous-arbre droit → minimum du sous-arbre droit ; sinon, remonter jusqu'au premier ancêtre « à gauche »
-- **Prédécesseur(x)** : symétrique
-- Complexité : **O(h)** où h = hauteur de l'arbre
+- Pourquoi 0 n'est pas toujours le meilleur choix ?
+  Parce que le prix 0 coute tres cher et risque d'etre choisi plusieurs fois.
 
-### Q4 — Dégénérescence de l'ABR
-- Si les prix sont insérés en ordre croissant (stratégie conservative), l'ABR devient une liste chaînée → hauteur = n
-- Détection : comparer h à log₂(n+1)
-- Solution : AVL ou dictionnaire + tri (non implémenté ici, mais signalé dans l'interface)
+- Le systeme est-il a somme nulle ?
+  Non. Le vendeur gagne de l'argent avec les mises, meme si personne ne gagne.
 
-### Q5 — Comparaison des stratégies (simulation 500 manches)
-- **Agressive** : fort taux de victoire car les prix bas sont plus souvent uniques
-- **Conservative** : recette vendeur maximale (prix élevés = coûts élevés)
-- **Adaptative** : performance variable selon l'historique disponible
-- **Aléatoire** : référence neutre, taux de victoire ≈ 1/nb_joueurs
+- Quelles infos faut-il pour trouver le gagnant ?
+  Il faut connaitre les prix joues et savoir combien de joueurs ont choisi chaque prix.
 
----
+- Peut-on trouver le gagnant sans trier avec `sort` ?
+  Oui. Le parcours infixe de l'ABR donne deja les prix dans l'ordre.
 
-## Risques identifiés
+- Quand l'ABR devient-il mauvais ?
+  Quand les valeurs arrivent dans un ordre presque trie. L'arbre devient trop haut.
 
-| Risque | Impact | Mitigation |
-|---|---|---|
-| ABR dégénéré | Recherche O(n) | Signalement dans l'UI + conseil AVL |
-| Aucun prix unique | Manche annulée | `trouver_gagnant()` retourne None |
-| CSV mal formaté | Crash au chargement | `charger_csv()` gère les 2 formats |
-| Interface gelée pendant simulation | UX dégradée | Thread daemon séparé |
+- Comment faire mieux si besoin ?
+  On pourrait utiliser un AVL ou une autre structure equilibree.
 
----
+## Ce qu'on a choisi
 
-## Équipe
-- malmezat-gif
-- tmalmeu
+- Code simple et assez court
+- Noms de fonctions explicites
+- Docstrings en francais simple
+- Interface sobre pour rester facile a comprendre
+- Verification automatique du coeur du projet avec `test_lowbid.py`
+
+## Point de vigilance
+
+L'interface a ete gardee volontairement simple. Le plus important pour le sujet reste la logique de l'ABR et le calcul du gagnant.

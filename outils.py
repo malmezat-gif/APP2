@@ -1,96 +1,94 @@
-# ============================================================
-# outils.py - Constantes et fonctions utilitaires du projet
-# LowBid : "Qui perd gagne !" — Enchère inversée
-# ============================================================
+import csv
+import random
 
-# --- Paramètres globaux de l'enchère (modifiables) ---
 
-COUT_BASE = 1       # Coût fixe de participation à chaque mise (en euros)
-ALPHA = 10          # Intensité de la prime de risque (plus alpha est grand, plus les petits prix coûtent cher)
-PRIX_MAX = 100      # Prix maximum qu'un joueur peut proposer lors d'une mise
+COUT_BASE = 1.0
+ALPHA = 10.0
+PRIX_MAX = 100
 
-# --- Paramètres de simulation ---
-
-NB_MANCHES_SIMULATION = 500   # Nombre de manches par défaut pour une simulation
-NB_JOUEURS_DEFAUT = 20        # Nombre de joueurs par défaut dans une simulation
+NB_MANCHES_SIMULATION = 500
+NB_JOUEURS_DEFAUT = 20
 
 
 def cout_mise(prix, cout_base=COUT_BASE, alpha=ALPHA):
     """
-    Calcule le coût d'une mise pour un prix donné.
-    Formule officielle : cout_base + alpha / (prix + 1)
-    Principe : plus le prix est bas, plus la mise est chère (prime de risque).
+    Calcule le cout d'une mise.
+
+    Dans l'ordre :
+    - on verifie que le prix est correct
+    - on applique la formule du sujet
+    - on arrondit le resultat
     """
-    # Vérification que le prix est bien un entier positif ou nul (règle du jeu)
     if prix < 0:
-        raise ValueError("Le prix doit être un entier >= 0")
+        raise ValueError("Le prix doit etre superieur ou egal a 0.")
 
-    # Calcul du coût : coût fixe + prime de risque décroissante avec le prix
     cout = cout_base + alpha / (prix + 1)
-
-    # On retourne le coût arrondi à 2 décimales (précision en euros)
     return round(cout, 2)
 
 
 def charger_csv(chemin_fichier):
     """
-    Charge un fichier CSV de mises (joueur, prix) ou (manche, joueur, prix).
-    Retourne une liste de tuples selon le format détecté.
+    Charge un fichier CSV de mises.
+
+    Formats acceptes :
+    - joueur,prix
+    - manche,joueur,prix
+
+    La fonction lit ligne par ligne et transforme chaque ligne en tuple.
     """
-    mises = []  # Liste qui contiendra les mises lues dans le fichier
+    mises = []
 
-    try:
-        # Ouverture du fichier texte en lecture avec encodage UTF-8
-        with open(chemin_fichier, 'r', encoding='utf-8') as f:
-            lignes = f.readlines()  # Lecture de toutes les lignes d'un coup
+    with open(chemin_fichier, newline="", encoding="utf-8") as fichier:
+        lecteur = csv.reader(fichier)
+        entete = next(lecteur, None)
 
-        # La première ligne est l'en-tête (ex: "joueur,prix" ou "manche,joueur,prix")
-        entete = lignes[0].strip().split(',')  # On découpe l'en-tête par virgule
+        if entete is None:
+            return mises
 
-        # Parcours de chaque ligne de données (on commence à la ligne 1 pour sauter l'en-tête)
-        for ligne in lignes[1:]:
-            elements = ligne.strip().split(',')  # Découpage de la ligne par virgule
+        entete = [colonne.strip().lower() for colonne in entete]
 
-            if not elements or elements == ['']:  # On ignore les lignes vides
+        for numero_ligne, ligne in enumerate(lecteur, start=2):
+            if not ligne or not any(cellule.strip() for cellule in ligne):
                 continue
 
-            # Format avec numéro de manche : "manche,joueur,prix"
-            if len(entete) == 3 and entete[0] == 'manche':
-                manche = int(elements[0])       # Numéro de la manche (entier)
-                joueur = elements[1].strip()    # Identifiant du joueur (chaîne)
-                prix   = int(elements[2])       # Prix proposé (entier)
-                mises.append((manche, joueur, prix))  # Ajout du triplet dans la liste
+            if entete == ["joueur", "prix"]:
+                if len(ligne) != 2:
+                    raise ValueError(f"Ligne {numero_ligne} invalide.")
+                joueur = ligne[0].strip()
+                prix = int(ligne[1])
+                mises.append((joueur, prix))
 
-            # Format simple : "joueur,prix"
-            elif len(entete) == 2:
-                joueur = elements[0].strip()    # Identifiant du joueur
-                prix   = int(elements[1])       # Prix proposé
-                mises.append((joueur, prix))    # Ajout du couple dans la liste
+            elif entete == ["manche", "joueur", "prix"]:
+                if len(ligne) != 3:
+                    raise ValueError(f"Ligne {numero_ligne} invalide.")
+                manche = int(ligne[0])
+                joueur = ligne[1].strip()
+                prix = int(ligne[2])
+                mises.append((manche, joueur, prix))
 
-        return mises  # On retourne la liste complète des mises chargées
+            else:
+                raise ValueError(
+                    "Le fichier doit commencer par 'joueur,prix' "
+                    "ou 'manche,joueur,prix'."
+                )
 
-    except FileNotFoundError:
-        print(f"Erreur : fichier '{chemin_fichier}' introuvable.")
-        return []
-
-    except ValueError as e:
-        print(f"Erreur de format dans le fichier CSV : {e}")
-        return []
+    return mises
 
 
 def generer_mises_aleatoires(nb_joueurs, prix_max=PRIX_MAX):
     """
-    Génère un jeu de données aléatoire pour démonstration ou simulation.
-    Chaque joueur propose un seul prix aléatoire entre 0 et prix_max.
-    Retourne une liste de tuples (joueur, prix).
+    Cree des donnees de demonstration.
+
+    Pour chaque joueur :
+    - on fabrique un nom simple
+    - on choisit un prix au hasard
+    - on ajoute le resultat dans la liste
     """
-    import random  # Module Python standard pour la génération de nombres aléatoires
+    mises = []
 
-    mises = []  # Liste qui contiendra les mises générées
+    for numero in range(1, nb_joueurs + 1):
+        joueur = f"J{numero:02d}"
+        prix = random.randint(0, prix_max)
+        mises.append((joueur, prix))
 
-    for i in range(nb_joueurs):
-        joueur = f"J{i+1:02d}"              # Nom du joueur au format J01, J02, ..., J99
-        prix   = random.randint(0, prix_max)  # Prix aléatoire entre 0 et prix_max inclus
-        mises.append((joueur, prix))         # Ajout de la mise dans la liste
-
-    return mises  # On retourne la liste des mises générées
+    return mises
